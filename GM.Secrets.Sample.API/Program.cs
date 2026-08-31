@@ -2,6 +2,7 @@ using GM.Caching;
 using GM.Secrets;
 using GM.Secrets.Configuration;
 using GM.Secrets.Environment;
+using GM.Secrets.Sample.API;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,9 +46,13 @@ app.MapGet("/db-info", async (ISecretsService secrets) =>
         : Results.Ok(new { creds.User, passwordConfigured = !string.IsNullOrEmpty(creds.Password) });
 });
 
-app.Run();
-
-public sealed record DbCredentials(string User, string Password);
+await app.RunAsync();
 
 // Exposed so the test project can spin the app up with WebApplicationFactory.
-public partial class Program;
+public partial class Program
+{
+    /// <summary>Prevents direct instantiation; exists only so <c>WebApplicationFactory&lt;Program&gt;</c> can reference the entry point's type.</summary>
+    protected Program()
+    {
+    }
+}
