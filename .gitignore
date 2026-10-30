@@ -13,6 +13,7 @@ artifacts/
 
 ## Local config / secrets
 appsettings.Local.json
+appsecrets*.json
 
 ## Build / test output
 [Tt]est[Rr]esults/

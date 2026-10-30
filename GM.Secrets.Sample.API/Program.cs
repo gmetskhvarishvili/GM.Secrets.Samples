@@ -1,48 +1,36 @@
-using GM.Caching;
 using GM.Secrets;
-using GM.Secrets.Configuration;
-using GM.Secrets.Environment;
 using GM.Secrets.Sample.API;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Optional cache: secret lookups are cached for Secrets:CacheDuration, so rotation happens on expiry
-// and remote providers aren't hit on every request.
-builder.Services.AddGMCaching();
+// The app's own settings files. appsettings.Local.json is an optional per-developer override.
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.Local.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true);
 
-// Register both providers; Secrets:Provider (appsettings) selects which one is active. This sample
-// defaults to "Configuration" (reads from the SecretValues section) so it runs with no setup; set
-// Secrets:Provider = "Environment" to read from environment variables instead.
-builder.Services.AddGMEnvironmentSecrets(builder.Configuration);
-builder.Services.AddGMConfigurationSecrets(builder.Configuration);
-builder.Services.AddGMSecrets(builder.Configuration);
+builder.Configuration.AddEnvironmentVariables();
+
+// Layers the secrets in between, lowest to highest:
+//   the files above → appsecrets.json (or SECRETS_FILE) → the store SECRETS_PROVIDER names → environment variables
+// The store and its credentials come from environment variables only (see Properties/launchSettings.json);
+// with SECRETS_PROVIDER unset, e.g. locally, only appsecrets.json is used. Fails at startup if the
+// selected store is misconfigured or unreachable.
+builder.AddGMSecrets();
+
+// A secret is read like any other setting — this code doesn't know which layer it came from.
+builder.Services.Configure<Sample>(builder.Configuration.GetSection("Sample"));
 
 var app = builder.Build();
 
-app.MapGet("/", async (ISecretsService secrets, IConfiguration config) => Results.Ok(new
+// IOptionsMonitor follows reloads (file edits, SECRETS_RELOAD_INTERVAL), so a rotated value shows up
+// without a restart. Only the user is returned; the password never leaves the app.
+app.MapGet("/", (IOptionsMonitor<Sample> options) =>
 {
-    message = "GM.Secrets sample",
-    provider = config["Secrets:Provider"],
-    // Report presence, never the value.
-    apiKeyConfigured = await secrets.GetSecretAsync("ApiKey") is not null,
-}));
-
-// Uses a secret WITHOUT exposing it: compares the caller's X-Api-Key header to the stored secret.
-app.MapGet("/secure", async (HttpContext ctx, ISecretsService secrets) =>
-{
-    var expected = await secrets.GetRequiredSecretAsync("ApiKey");
-    var provided = ctx.Request.Headers["X-Api-Key"].ToString();
-    return string.Equals(provided, expected, StringComparison.Ordinal)
-        ? Results.Ok(new { access = "granted" })
-        : Results.Unauthorized();
-});
-
-// Typed secret: a JSON credential is deserialized; only the non-sensitive part is returned.
-app.MapGet("/db-info", async (ISecretsService secrets) =>
-{
-    var creds = await secrets.GetSecretAsync<DbCredentials>("DbCredentials");
-    return creds is null
-        ? Results.NotFound(new { error = "DbCredentials secret not configured" })
+    var creds = options.CurrentValue;
+    return string.IsNullOrEmpty(creds.User)
+        ? Results.NotFound(new { error = "Sample not configured" })
         : Results.Ok(new { creds.User, passwordConfigured = !string.IsNullOrEmpty(creds.Password) });
 });
 

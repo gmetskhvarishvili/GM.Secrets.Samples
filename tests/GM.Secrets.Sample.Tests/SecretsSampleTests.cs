@@ -1,53 +1,55 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace GM.Secrets.Sample.Tests;
 
-// Boots the sample app (Configuration provider reading the SecretValues section) end to end.
-public class SecretsSampleTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+// Boots the sample app end to end. appsecrets.json is gitignored, so the factory supplies the demo
+// secrets itself, as configuration — the app can't tell where they came from.
+public sealed class SampleAppFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder) =>
+        builder.UseEnvironment("Development").ConfigureAppConfiguration(config => config.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Sample:User"] = "app_user",
+            ["Sample:Password"] = "p@ssw0rd",
+        }));
+}
+
+public class SecretsSampleTests(SampleAppFactory factory) : IClassFixture<SampleAppFactory>
 {
     [Fact]
-    public async Task Root_ReportsApiKeyConfigured_WithoutExposingIt()
+    public async Task Root_ReturnsTheConfiguredUser_ButNotThePassword()
     {
         var client = factory.CreateClient();
 
         var body = await client.GetStringAsync("/");
         using var doc = JsonDocument.Parse(body);
 
-        Assert.Equal("Configuration", doc.RootElement.GetProperty("provider").GetString());
-        Assert.True(doc.RootElement.GetProperty("apiKeyConfigured").GetBoolean());
-        Assert.DoesNotContain("demo-super-secret-key", body); // the value is never returned
-    }
-
-    [Fact]
-    public async Task Secure_GrantsWithCorrectKey_RejectsOtherwise()
-    {
-        var client = factory.CreateClient();
-
-        var withKey = new HttpRequestMessage(HttpMethod.Get, "/secure");
-        withKey.Headers.Add("X-Api-Key", "demo-super-secret-key");
-        var ok = await client.SendAsync(withKey);
-        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
-
-        var wrong = new HttpRequestMessage(HttpMethod.Get, "/secure");
-        wrong.Headers.Add("X-Api-Key", "nope");
-        var denied = await client.SendAsync(wrong);
-        Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
-    }
-
-    [Fact]
-    public async Task DbInfo_ReturnsTypedSecret_User_ButNotPassword()
-    {
-        var client = factory.CreateClient();
-
-        var body = await client.GetStringAsync("/db-info");
-        using var doc = JsonDocument.Parse(body);
-
         Assert.Equal("app_user", doc.RootElement.GetProperty("user").GetString());
         Assert.True(doc.RootElement.GetProperty("passwordConfigured").GetBoolean());
-        Assert.DoesNotContain("p@ssw0rd", body); // password value never leaves the app
+        Assert.DoesNotContain("p@ssw0rd", body); // the password never leaves the app
+    }
+
+    [Fact]
+    public async Task WithoutAnySecrets_StartsAndReportsNotConfigured()
+    {
+        // An empty content root: no appsecrets.json (whatever a developer has locally), nothing else set.
+        var contentRoot = Directory.CreateTempSubdirectory("gmsample-").FullName;
+        try
+        {
+            using var bare = new WebApplicationFactory<Program>().WithWebHostBuilder(b => b.UseEnvironment("Production").UseContentRoot(contentRoot));
+
+            var response = await bare.CreateClient().GetAsync(new Uri("/", UriKind.Relative));
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+        finally
+        {
+            Directory.Delete(contentRoot, recursive: true);
+        }
     }
 }

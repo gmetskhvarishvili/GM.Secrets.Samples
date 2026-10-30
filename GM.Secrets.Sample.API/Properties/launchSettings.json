@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SECRETS_FILE": ""
+      }
+    },
+    "vault": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Staging",
+        "SECRETS_PROVIDER": "Vault",
+        "SECRETS_RELOAD_INTERVAL": "00:00:05",
+        "SECRETS_FILE": "",
+        "VAULT_ADDR": "http://127.0.0.1:8200",
+        "VAULT_TOKEN": "dev-root-token",
+        "VAULT_NAMESPACE": "",
+        "VAULT_MOUNT": "secret",
+        "VAULT_PATHS": "gm-secrets-sample/staging"
+      }
+    },
+    "aws": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Staging",
+        "SECRETS_PROVIDER": "AwsSecretsManager",
+        "SECRETS_RELOAD_INTERVAL": "00:00:05",
+        "SECRETS_FILE": "",
+        "AWS_REGION": "eu-north-1",
+        "AWS_SECRETS_MANAGER_SECRET_IDS": "gm.secrets.sample"
+      }
+    },
+    "azure": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Staging",
+        "SECRETS_PROVIDER": "AzureKeyVault",
+        "SECRETS_RELOAD_INTERVAL": "00:00:05",
+        "SECRETS_FILE": "",
+        "AZURE_KEYVAULT_URI": "https://gm-secrets-sample.vault.azure.net/",
+        "AZURE_KEYVAULT_PREFIX": ""
+      }
+    },
+    "doppler": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SECRETS_PROVIDER": "Doppler",
+        "SECRETS_RELOAD_INTERVAL": "00:00:05",
+        "SECRETS_FILE": "",
+        "DOPPLER_PROJECT": "gm-secrets-sample",
+        "DOPPLER_CONFIG": ""
+      }
+    }
+  }
+}
