@@ -25,7 +25,7 @@ Lowest to highest precedence:
 | Layer | Committed? | Holds |
 | --- | --- | --- |
 | `appsettings.json`, `appsettings.Local.json`, `appsettings.{Environment}.json` | yes | settings only — no secret values |
-| `appsecrets.json`, `appsecrets.{Environment}.json` | **no** (gitignored, never published) | local secret values; loaded in any environment when the file exists — or from wherever the `SECRETS_FILE` environment variable points |
+| `appsecrets.json`, `appsecrets.{Environment}.json` | **no** in a real app (gitignored, never published) — the sample commits a demo `appsecrets.json` | local secret values; loaded in any environment when the file exists — or from wherever the `SECRETS_FILE` environment variable points |
 | the store `SECRETS_PROVIDER` selects — Doppler, AWS Secrets Manager, Azure Key Vault, or Vault | — | an environment's secret values, loaded at startup |
 | environment variables | — | always win |
 
@@ -36,13 +36,18 @@ interval; requests never call it.
 
 ## Run
 
-Create `GM.Secrets.Sample.API/appsecrets.json` (gitignored):
+The sample ships an example [`GM.Secrets.Sample.API/appsecrets.json`](GM.Secrets.Sample.API/appsecrets.json)
+with demo values:
 
 ```json
 {
-  "Sample": { "User": "app_user", "Password": "p@ssw0rd" }
+  "Sample": { "User": "app_user_111", "Password": "p@ssw0rd" }
 }
 ```
+
+It's committed only so the example works out of the box. In your own app, gitignore
+`appsecrets*.json` and put real local values there; other `appsecrets.*.json` files stay ignored
+here too.
 
 ```bash
 dotnet run --project GM.Secrets.Sample.API
@@ -52,7 +57,7 @@ dotnet run --project GM.Secrets.Sample.API
 curl -s http://localhost:5000/
 ```
 
-`/` returns `{"user":"app_user","passwordConfigured":true}`: the `Sample` section bound as
+`/` returns `{"user":"app_user_111","passwordConfigured":true}`: the `Sample` section bound as
 `IOptionsMonitor<Sample>` — the user, never the password. Without a `Sample` section it
 returns 404. `appsecrets.json` is loaded whatever the environment — from `dotnet run`, Rider, or the
 built `.exe` — and kept out of `dotnet publish`, so it never reaches a server.
@@ -167,8 +172,8 @@ the app stops at startup with the reason (never a secret value).
 - **Rotate anything that was committed or shared** (pasted in a chat, a screenshot): AWS IAM →
   *Create access key*, then deactivate the old one; Azure → *New client secret*, delete the old one;
   Doppler → revoke the service token.
-- `appsecrets*.json` is gitignored and kept out of `dotnet publish`; `appsettings*.json` is committed
-  — never put a real secret in it.
+- `appsecrets*.json` is kept out of `dotnet publish`; gitignore it in your app (this sample commits
+  only a demo `appsecrets.json`). `appsettings*.json` is committed — never put a real secret in it.
 - Before committing: `git diff --cached` and look for `TOKEN`, `SECRET`, `KEY` values.
 
 ## Tests
